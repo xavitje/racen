@@ -30,6 +30,11 @@ class ConnectionManager:
         if websocket in self.player_states:
             del self.player_states[websocket]
 
+        # Als er NIEMAND meer is, reset de game state
+        if len(self.active_connections) == 0:
+            self.game_active = False
+            print("Resetting game state (no players left)")
+
         if not self.game_active:
              asyncio.create_task(self.send_lobby_update())
              asyncio.create_task(self.check_start_game())
@@ -96,11 +101,12 @@ class ConnectionManager:
     async def check_start_game(self):
         if len(self.active_connections) > 0:
             all_ready = all(s["ready"] for s in self.player_states.values())
+            print(f"CHECK START: Players={len(self.active_connections)}, AllReady={all_ready}, Active={self.game_active}")
             if all_ready and not self.game_active:
+                print("STARTING GAME NOW!") # DEBUG
                 self.game_active = True
                 self.start_time = time.time()
                 await self.broadcast({"type": "game_start"})
-
 
     async def check_game_over(self):
         all_finished = all(s["finished"] for s in self.player_states.values())
