@@ -6,10 +6,20 @@ import http
 
 CLIENTS = set()
 
+# Accepteer GET en HEAD voor Render health checks
 async def process_request(path, request_headers):
-    if request_headers.get('Upgrade', '').lower() != 'websocket':
-        return (http.HTTPStatus.OK, [], b"")  # health checks
-    return None  # echte WS connectie
+    method = request_headers.get(':method', None)
+    upgrade = request_headers.get('Upgrade', '').lower()
+    # Als het geen echte websocket handshake is (geen "Upgrade: websocket"), geef 200 OK response
+    if upgrade != 'websocket':
+        # HEAD of gewone HTTP-request
+        return (
+            http.HTTPStatus.OK, 
+            [('Content-Type', 'text/plain')], 
+            b"WebSocket server running (health check response)"
+        )
+    # Anders: niks doen, handshake gaat door
+    return None
 
 async def handler(websocket):
     CLIENTS.add(websocket)
