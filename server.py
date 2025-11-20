@@ -4,14 +4,12 @@ import json
 import websockets
 import http
 
-# Clients bijhouden
 CLIENTS = set()
 
-# Health check functie
 async def process_request(path, request_headers):
     if request_headers.get('Upgrade', '').lower() != 'websocket':
-        return (http.HTTPStatus.OK, [], b"")  # Sta HEAD/GET toe
-    return None  # Echte WebSocket connectie
+        return (http.HTTPStatus.OK, [], b"")  # health checks
+    return None  # echte WS connectie
 
 async def handler(websocket):
     CLIENTS.add(websocket)
@@ -26,7 +24,6 @@ async def handler(websocket):
         CLIENTS.remove(websocket)
 
 async def main():
-    # Gebruik de juiste poort variabel (Render: 'PORT')
     port = int(os.environ.get("PORT", 8080))
     print(f"Server luistert op poort {port}")
     async with websockets.serve(
