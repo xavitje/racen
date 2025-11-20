@@ -7,7 +7,7 @@ app = FastAPI()
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
-        self.player_states = {} 
+        self.player_states = {}
         self.game_active = False
         self.start_time = 0
 
@@ -16,9 +16,9 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         # Wijs tijdelijk ID toe en default state
         self.player_states[websocket] = {
-            "id": str(id(websocket)), 
-            "ready": False, 
-            "finished": False, 
+            "id": str(id(websocket)),
+            "ready": False,
+            "finished": False,
             "time": None,
             "x": 0, "y": 0, "z": 0, "lap": 1, "color": (255,0,0) # Defaults
         }
@@ -29,8 +29,11 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
         if websocket in self.player_states:
             del self.player_states[websocket]
+
         if not self.game_active:
              asyncio.create_task(self.send_lobby_update())
+             asyncio.create_task(self.check_start_game())
+
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
@@ -43,7 +46,7 @@ class ConnectionManager:
         players_info = []
         for ws, state in self.player_states.items():
             players_info.append({"id": state["id"], "ready": state["ready"]})
-        
+
         await self.broadcast({
             "type": "lobby_update",
             "players": players_info,
@@ -82,7 +85,7 @@ class ConnectionManager:
                 self.player_states[websocket]["finished"] = True
                 finish_time = time.time() - self.start_time
                 self.player_states[websocket]["time"] = finish_time
-                
+
                 await self.broadcast({
                     "type": "player_finished",
                     "id": self.player_states[websocket]["id"],
@@ -91,12 +94,13 @@ class ConnectionManager:
                 await self.check_game_over()
 
     async def check_start_game(self):
-        if len(self.active_connections) > 0: 
+        if len(self.active_connections) > 0:
             all_ready = all(s["ready"] for s in self.player_states.values())
             if all_ready and not self.game_active:
                 self.game_active = True
                 self.start_time = time.time()
                 await self.broadcast({"type": "game_start"})
+
 
     async def check_game_over(self):
         all_finished = all(s["finished"] for s in self.player_states.values())
