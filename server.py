@@ -139,25 +139,33 @@ class ConnectionManager:
     # server.py
 
     async def check_start_game(self):
-        if len(self.active_connections) > 0:
-            if len(self.active_connections) < 1:
-                return 
+        if len(self.active_connections) == 0:
+            return
 
-            all_ready = all(s["ready"] for s in self.player_states.values())
-            
-            if all_ready and not self.game_active and not self.countdown_active:
-                self.countdown_active = True
-                print("Starting 3 second countdown...")
-                
-                for i in range(3, 0, -1):
-                    await self.broadcast({"type": "countdown", "value": i})
-                    await asyncio.sleep(1)
-                
-                print("STARTING GAME NOW!")
-                self.game_active = True
-                self.start_time = time.time()
-                await self.broadcast({"type": "game_start"})
-                self.countdown_active = False
+        active_states = [
+            self.player_states[ws]
+            for ws in self.active_connections
+            if ws in self.player_states
+        ]
+        if not active_states:
+            return
+
+        all_ready = all(s["ready"] for s in active_states)
+
+        if all_ready and not self.game_active and not self.countdown_active:
+            self.countdown_active = True
+            print("Starting 3 second countdown...")
+
+            for i in range(3, 0, -1):
+                await self.broadcast({"type": "countdown", "value": i})
+                await asyncio.sleep(1)
+
+            print("STARTING GAME NOW!")
+            self.game_active = True
+            self.start_time = time.time()
+            await self.broadcast({"type": "game_start"})
+            self.countdown_active = False
+
 
     async def check_game_over(self):
         all_finished = all(s["finished"] for s in self.player_states.values())
