@@ -135,9 +135,6 @@ class ConnectionManager:
                 })
                 
                 await self.check_game_over()
-
-    # server.py
-
     async def check_start_game(self):
         if len(self.active_connections) == 0:
             return
