@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import time
 import asyncio
@@ -11,6 +12,7 @@ class ConnectionManager:
         self.player_states = {}
         self.game_active = False
         self.start_time = 0
+        self.countdown_active = False
         self.player_colors = [
             (255, 0, 0),    # Rood
             (0, 100, 255),  # Blauw
@@ -134,16 +136,28 @@ class ConnectionManager:
                 
                 await self.check_game_over()
 
+    # server.py
+
     async def check_start_game(self):
         if len(self.active_connections) > 0:
+            if len(self.active_connections) < 1:
+                return 
+
             all_ready = all(s["ready"] for s in self.player_states.values())
-            print(f"CHECK START: Players={len(self.active_connections)}, AllReady={all_ready}, Active={self.game_active}")
             
-            if all_ready and not self.game_active:
+            if all_ready and not self.game_active and not self.countdown_active:
+                self.countdown_active = True
+                print("Starting 3 second countdown...")
+                
+                for i in range(3, 0, -1):
+                    await self.broadcast({"type": "countdown", "value": i})
+                    await asyncio.sleep(1)
+                
                 print("STARTING GAME NOW!")
                 self.game_active = True
                 self.start_time = time.time()
                 await self.broadcast({"type": "game_start"})
+                self.countdown_active = False
 
     async def check_game_over(self):
         all_finished = all(s["finished"] for s in self.player_states.values())
