@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import time
 import asyncio
@@ -74,7 +73,6 @@ class ConnectionManager:
         
         if not self.game_active:
             asyncio.create_task(self.send_lobby_update())
-            asyncio.create_task(self.check_start_game())
 
     async def broadcast(self, message: dict, exclude_sender: WebSocket = None):
         for connection in self.active_connections:
@@ -92,11 +90,15 @@ class ConnectionManager:
                 "ready": state["ready"],
                 "color": state["color"]
             })
-        await self.broadcast({
-            "type": "lobby_update",
-            "players": players_info,
-            "game_active": self.game_active
-        })
+        for connection in self.active_connections:
+            try:
+                await connection.send_json({
+                    "type": "lobby_update",
+                    "players": players_info,
+                    "game_active": self.game_active
+                })
+            except:
+                pass
 
     async def handle_message(self, websocket: WebSocket, data: dict):
         msg_type = data.get("type")
@@ -135,6 +137,7 @@ class ConnectionManager:
                 })
                 
                 await self.check_game_over()
+
     async def check_start_game(self):
         if len(self.active_connections) == 0:
             return
@@ -154,6 +157,7 @@ class ConnectionManager:
             print("Starting 3 second countdown...")
 
             for i in range(3, 0, -1):
+                print(f"Countdown: {i}")
                 await self.broadcast({"type": "countdown", "value": i})
                 await asyncio.sleep(1)
 
@@ -162,7 +166,12 @@ class ConnectionManager:
             self.start_time = time.time()
             await self.broadcast({"type": "game_start"})
             self.countdown_active = False
-
+            
+            # Reset ready status voor volgende race
+            for state in self.player_states.values():
+                state["ready"] = False
+                state["finished"] = False
+                state["time"] = None
 
     async def check_game_over(self):
         all_finished = all(s["finished"] for s in self.player_states.values())
@@ -193,3 +202,7 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/")
 def health():
     return {"status": "ok"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
